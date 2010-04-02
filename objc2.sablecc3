@@ -1,0 +1,925 @@
+Package net.pornel.objc2;
+
+Helpers
+
+digit = ['0' .. '9'];
+nonzero_digit = ['1' .. '9'];
+octal_digit = ['0' .. '7'];
+hex_digit = digit | ['a' .. 'f'] | ['A' .. 'F'];
+hex_quad = hex_digit hex_digit hex_digit hex_digit;
+
+nondigit = ['a' .. 'z'] | ['A' ..'Z'] | '_';
+universal_character_name = ('\' 'u' hex_quad) | ('\' 'U' hex_quad hex_quad);
+
+ident_nondigit = nondigit | universal_character_name ; // may include other implementation-defined characters
+
+unsigned_suffix = 'u' | 'U';
+long_suffix = ('l' | 'L') | ('LL' | 'll');
+integer_suffix = (unsigned_suffix long_suffix?) | (long_suffix unsigned_suffix?);
+
+decimal_constant = nonzero_digit digit*;
+octal_constant = '0' | octal_digit;
+
+hex_prefix = '0' ('x' | 'X');
+hex_constant = hex_prefix hex_digit+;
+integer_constant
+    = (decimal_constant integer_suffix?)
+    | (octal_constant integer_suffix?)
+    | (hex_constant integer_suffix?)
+    ;
+
+simple_escape_sequence = '\' (''' | '"' | '?' | '\' | 'a' | 'b' | 'f' | 'n' | 'r' | 't' | 'v');
+octal_escape_sequence = '\' octal_digit (octal_digit octal_digit?)?;
+hex_escape_sequence = '\' 'x' hex_digit+;
+escape_sequence = simple_escape_sequence | octal_escape_sequence | hex_escape_sequence;
+
+any_char = [0 .. 255];
+nl = 10;
+cr = 13;
+tab = 9;
+c_char = [[[any_char - '''] - '\'] - nl] | escape_sequence;
+character_constant = 'L'? ''' c_char+ ''';
+
+fractional_constant = (digit* '.' digit+) | (digit+ '.');
+hex_fractional_constant = (hex_digit* '.' hex_digit+) | (hex_digit+ '.');
+
+exponent_part = ('e' | 'E') ('+' | '-')? digit+;
+binary_exponent_part = ('p' | 'P') ('+' | '-')? digit+;
+
+floating_suffix = ('f' | 'l' | 'F' | 'L');
+
+decimal_floating_constant
+    = (fractional_constant exponent_part? floating_suffix?)
+    | (digit+ exponent_part floating_suffix?)
+    ;
+
+hex_floating_constant = hex_prefix (hex_digit+ | hex_fractional_constant) binary_exponent_part floating_suffix?;
+
+floating_constant = decimal_floating_constant | hex_floating_constant;
+
+s_char = [[[any_char - '"'] - '\'] - nl] | escape_sequence;
+string_literal = ('L' | '@') '"' s_char* '"';
+
+h_char = [[any_char - '>'] - nl];
+q_char = [[any_char - '"'] - nl];
+
+pp_hash = '#' (tab|cr|' ')*;
+
+States
+    c, pp; // C and preprocessor
+
+Tokens
+
+// PP
+
+comment = '/*' ([any_char  - '*'] | '*' [any_char - '/'])* '*/';
+bcpl_comment = '//' [any_char - nl]*;
+line_continuation = '\' nl;
+
+{c,pp->c} newline = cr? nl;
+whitespace = (tab|cr|' ')+;
+
+{pp} header_name = ('<' h_char+ '>') | ('"' q_char+ '"');
+
+{c->pp} pp_if      = pp_hash 'if';
+{c->pp} pp_ifdef   = pp_hash 'ifdef';
+{c->pp} pp_ifndef  = pp_hash 'ifndef';
+{c->pp} pp_elif    = pp_hash 'elif';
+{c->pp} pp_else    = pp_hash 'else';
+{c->pp} pp_endif   = pp_hash 'endif';
+{c->pp} pp_include = pp_hash 'include';
+{c->pp} pp_import  = pp_hash 'import';
+{c->pp} pp_define  = pp_hash 'define';
+{c->pp} pp_undef   = pp_hash 'undef';
+{c->pp} pp_line    = pp_hash 'line';
+{c->pp} pp_error   = pp_hash 'error';
+{c->pp} pp_warning = pp_hash 'warning';
+{c->pp} pp_pragma  = pp_hash 'pragma';
+
+{pp} pp_whatever = [any_char - nl]+;
+
+// C
+
+{c} plus_plus = '++';
+{c} pluseq = '+=';
+{c} plus = '+';
+{c} minus_minus = '--';
+{c} minuseq = '-=';
+{c} minusgt = '->';
+{c} minus = '-';
+
+{c} stareq = '*=';
+{c} star = '*';
+{c} slasheq = '/=';
+{c} slash = '/';
+{c} careteq = '^=';
+{c} caret = '^';
+
+{c} gtgteq = '>>=';
+{c} gtgt = '>>';
+{c} ltlteq = '<<=';
+{c} ltlt = '<<';
+
+{c} gte = '>=';
+{c} lte = '<=';
+
+{c} gt = '>';
+{c} lt = '<';
+
+{c} eqeqeq = '===';
+{c} eqeq = '==';
+{c} eq = '=';
+{c} neqeq = '!==';
+{c} neq = '!=';
+
+{c} excl = '!';
+{c} tilde = '~';
+
+{c} ampampeq = '&&=';
+{c} ampamp = '&&';
+{c} ampeq = '&=';
+{c} amp = '&';
+{c} barbareq = '||=';
+{c} barbar = '||';
+{c} bareq = '|=';
+{c} bar = '|';
+
+{c} percenteq = '%=';
+{c} percent = '%';
+
+{c} ellipsis = '...';
+{c} dotdot = '..';
+{c} dot = '.';
+
+{c} left_paren = '(';
+{c} right_paren = ')';
+{c} left_square = '[';
+{c} right_square = ']';
+{c} left_brace = '{';
+{c} right_brace = '}';
+
+{c} question = '?';
+{c} colon = ':';
+{c} semicolon = ';';
+{c} comma = ',';
+
+{c} constant = integer_constant | floating_constant | character_constant;
+{c} string_literal = ('L' | '@') '"' s_char* '"';
+
+{c} if_keyword = 'if';
+{c} else_keyword = 'else';
+
+{c} case_keyword = 'case';
+{c} default_keyword = 'default';
+
+{c} var_keyword = 'var';
+{c} return_keyword = 'return';
+{c} for_keyword = 'for';
+{c} in_keyword = 'in';
+{c} break_keyword = 'break';
+{c} continue_keyword = 'continue';
+{c} struct_keyword = 'struct';
+{c} union_keyword = 'union';
+{c} enum_keyword = 'enum';
+{c} sizeof_keyword = 'sizeof';
+
+
+{c} protocol_qualifier_except_in = 'out' | 'inout' | 'bycopy' | 'byref' | 'oneway'; // in must be separate token
+{c} type_qualifier =  'const' | 'volatile' | 'restrict' | '__strong' | '__weak'; // usually contains protocol_qualifier, but that causes ambiguity in for..in
+
+{c} while_keyword = 'while';
+{c} do_keyword = 'do';
+{c} switch_keyword = 'switch';
+
+{c} type_specifier_keywords = 'void' | 'char' | 'short' | 'int' | 'long' | 'float' | 'double' | 'signed' | 'unsigned' | '_Bool' | '_Complex' | '_Imaginary';
+
+{c} storage_class_specifier = 'auto' | 'register' | 'static' | 'extern';// | 'typedef';
+
+{c} function_specifier = 'inline';
+
+{c} goto_keyword = 'goto';
+
+{c} typedefed_ident = '__use_lexer_hack_to_add_all_typedefs__' | 'BOOL' | 'IMP' | 'SEL' | 'Class' | 'id';
+
+{c} typedef_keyword = 'typedef';
+
+{c} at_implementation = '@implementation';
+{c} at_interface = '@interface';
+{c} at_protocol = '@protocol';
+{c} at_encode = '@encode';
+{c} at_synchronized = '@synchronized';
+{c} at_selector = '@selector';
+{c} at_end = '@end';
+{c} at_defs = '@defs';
+{c} at_class = '@class';
+
+{c} at_try = '@try';
+{c} at_throw = '@throw';
+{c} at_catch = '@catch';
+{c} at_finally = '@finally';
+
+{c} at_private    = '@private';
+{c} at_package    = '@package';
+{c} at_public     = '@public';
+{c} at_protected  = '@protected';
+
+{c} at_property = '@property';
+{c} at_synthesize = '@synthesize';
+{c} at_dynamic = '@dynamic';
+
+{c} at_optional = '@optional';
+{c} at_required = '@required';
+
+{c} ident = ident_nondigit ( ident_nondigit | digit )*;
+
+
+Ignored Tokens
+
+newline, whitespace, comment, bcpl_comment, line_continuation,
+
+pp_if, pp_ifdef, pp_ifndef, pp_elif, pp_else, pp_endif, pp_include, pp_import, pp_define, pp_undef, pp_line, pp_error, pp_warning, pp_pragma, pp_whatever, header_name;
+
+
+Productions
+
+translation_unit
+    = external_declaration*
+    ;
+
+primary_expression
+    = ident
+    | constant
+    | string
+    | left_paren expression right_paren
+    | message_expression
+    | selector_expression
+    | protocol_expression
+    | encode_expression
+    ;
+
+string
+    = string_literal+
+    ;
+
+message_expression
+    = left_square receiver message_selector right_square
+    ;
+
+receiver
+    = expression // catches 'self' and 'super' as ident
+    | typedefed_ident // requires lexer hack
+    ;
+
+message_selector
+    = ident
+    | keyword_argument+
+    ;
+
+keyword_argument
+    = ident colon expression
+    | colon expression
+    ;
+
+postfix_expression
+    = primary_expression
+    | postfix_expression left_square expression right_square
+    | postfix_expression left_paren argument_expression_list? right_paren
+    | postfix_expression dot ident
+    | postfix_expression minusgt ident
+    | postfix_expression plus_plus
+    | postfix_expression minus_minus
+    | left_paren type_name right_paren left_brace initializer_list comma? right_brace
+    ;
+
+argument_expression_list
+    = assignment_expression
+    | argument_expression_list comma assignment_expression
+    ;
+
+unary_expression
+    = postfix_expression
+    | plus_plus unary_expression
+    | minus_minus unary_expression
+    | amp cast_expression
+    | star cast_expression
+    | plus cast_expression
+    | minus cast_expression
+    | tilde cast_expression
+    | excl cast_expression
+    | sizeof_keyword unary_expression
+    | sizeof_keyword left_paren type_name right_paren
+    ;
+
+cast_expression
+    = unary_expression
+    | left_paren type_name right_paren cast_expression
+    ;
+
+multiplicative_expression
+    = cast_expression
+    | multiplicative_expression star cast_expression
+    | multiplicative_expression slash cast_expression
+    | multiplicative_expression percent cast_expression
+    ;
+
+additive_expression
+    = multiplicative_expression
+    | additive_expression plus multiplicative_expression
+    | additive_expression minus multiplicative_expression
+    ;
+
+shift_expression
+    = additive_expression
+    | shift_expression ltlt additive_expression
+    | shift_expression gtgt additive_expression
+    ;
+
+relational_expression
+    = shift_expression
+    | relational_expression lt shift_expression
+    | relational_expression gt shift_expression
+    | relational_expression lte shift_expression
+    | relational_expression gte shift_expression
+    ;
+
+equality_expression
+    = relational_expression
+    | equality_expression eqeq relational_expression
+    | equality_expression neq relational_expression
+    ;
+
+and_expression
+    = equality_expression
+    | and_expression amp equality_expression
+    ;
+
+exclusive_or_expression
+    = and_expression
+    | exclusive_or_expression caret and_expression
+    ;
+
+inclusive_or_expression
+    = exclusive_or_expression
+    | inclusive_or_expression bar exclusive_or_expression
+    ;
+
+logical_and_expression
+    = inclusive_or_expression
+    | logical_and_expression ampamp inclusive_or_expression
+    ;
+
+logical_or_expression
+    = logical_and_expression
+    | logical_or_expression barbar logical_and_expression
+    ;
+
+conditional_expression
+    = logical_or_expression
+    | logical_or_expression question expression colon conditional_expression
+    ;
+
+assignment_expression
+    = conditional_expression
+    | unary_expression eq assignment_expression
+    | unary_expression stareq assignment_expression
+    | unary_expression slasheq assignment_expression
+    | unary_expression percenteq assignment_expression
+    | unary_expression pluseq assignment_expression
+    | unary_expression minuseq assignment_expression
+    | unary_expression ltlteq assignment_expression
+    | unary_expression gtgteq assignment_expression
+    | unary_expression ampeq assignment_expression
+    | unary_expression careteq assignment_expression
+    | unary_expression bareq assignment_expression
+    ;
+
+expression
+    = assignment_expression
+    | expression comma assignment_expression
+    ;
+
+constant_expression
+    = conditional_expression
+    ;
+
+
+
+
+///////// Declaration ////////
+
+
+declaration
+    = type_declaration semicolon  // C99 adds typedef as storage_class
+    | declaration_specifier+ init_declarator_list? semicolon
+    ;
+
+declaration_specifier
+    = storage_class_specifier  // inline, auto, register
+    | type_specifier // int, struct, union, id
+    | type_qualifier // const/volatile
+    | function_specifier
+    ;
+
+init_declarator_list
+    = init_declarator
+    | init_declarator_list comma init_declarator
+    ;
+
+init_declarator
+    = declarator
+    | declarator eq initializer
+    ;
+
+type_declarator
+    = pointer? type_direct_declarator
+    ;
+
+type_direct_declarator
+    = ident
+    | left_paren type_declarator right_paren
+    | type_direct_declarator left_square constant_expression? right_square
+    | type_direct_declarator left_paren parameter_type_list right_paren
+    | type_direct_declarator left_paren identifier_list? right_paren
+    ;
+
+type_declaration
+    = typedef_keyword declaration_specifier+ type_declarator
+    ;
+
+protocol_qualifier
+    = protocol_qualifier_except_in
+    | in_keyword
+    ;
+
+type_specifier
+    = type_specifier_keywords
+    | struct_or_union_specifier
+    | enum_specifier
+    | typedefed_ident protocol_reference_list? // requires lexer hack
+    ;                                                         // (id|type)  [ protocol_reference_list ]
+
+type_specifier_with_unknown_type
+    = type_specifier
+    | ident protocol_reference_list? // ident represents typedefed_ident, hack not needed here
+    ;
+
+struct_or_union_specifier
+    =  struct_or_union ident? left_brace struct_declaration+ right_brace
+    | struct_or_union ident? left_brace at_defs left_paren class_name right_paren right_brace
+    | struct_or_union ident
+    ;
+
+struct_or_union
+    = struct_keyword
+    | union_keyword
+    ;
+
+struct_declaration
+    = specifier_qualifier+ struct_declarator_list semicolon
+    ;
+
+specifier_qualifier
+    = type_specifier // int, struct, union, id
+    | type_qualifier // const/volatile
+    | protocol_qualifier // inout, oneway
+    ;
+
+specifier_qualifier_with_unknown_type
+    = type_specifier_with_unknown_type
+    | type_qualifier
+    | protocol_qualifier
+    ;
+
+struct_declarator_list
+    = struct_declarator
+    | struct_declarator_list comma struct_declarator
+    ;
+
+struct_declarator
+    = declarator
+    | declarator? colon constant_expression
+    ;
+
+enum_specifier
+    = enum_keyword ident? left_brace enumerator_list comma? right_brace
+    | enum_keyword ident
+    ;
+
+enumerator_list
+    = enumerator
+    | enumerator_list comma enumerator
+    ;
+
+enumerator
+    = ident
+    | ident eq constant_expression
+    ;
+
+declarator
+    = pointer? direct_declarator
+    ;
+
+direct_declarator
+    = ident
+    | left_paren declarator right_paren
+    | direct_declarator left_square type_qualifier* assignment_expression? right_square
+    | direct_declarator left_paren parameter_type_list right_paren
+    | direct_declarator left_paren identifier_list? right_paren
+        /* C99
+        direct-declarator [ type-qualifier-listopt
+        direct-declarator [ static  type-qualifier-listopt  assignment-expression ]
+        direct-declarator [type-qualifier-list static assignment-expression]
+        direct-declarator [type-qualifier-listopt *]
+        */
+    ;
+
+pointer = star type_qualifier*
+    | star type_qualifier* pointer
+    ;
+
+parameter_type_list
+    = parameter_list
+    | parameter_list comma ellipsis
+    ;
+
+parameter_list
+    = parameter_declaration
+    | parameter_list comma parameter_declaration
+    ;
+
+parameter_declaration
+    = declaration_specifier+ declarator
+    | declaration_specifier+ abstract_declarator?
+    ;
+
+identifier_list
+    = ident
+    | identifier_list comma ident
+    ;
+
+type_name
+    = specifier_qualifier+ abstract_declarator?
+    ;
+
+type_name_with_unknown_type
+    = specifier_qualifier_with_unknown_type+ abstract_declarator?
+    ;
+
+abstract_declarator
+    = pointer
+    | pointer? direct_abstract_declarator
+    ;
+
+direct_abstract_declarator
+    = left_paren abstract_declarator right_paren
+    | direct_abstract_declarator? left_paren parameter_type_list? right_paren
+    | direct_abstract_declarator? left_square assignment_expression? right_square
+    | direct_abstract_declarator? left_square star right_square
+    ;
+
+initializer
+    = assignment_expression
+    | left_brace initializer_list comma? right_brace
+    ;
+
+initializer_list
+    = designation? initializer
+    | initializer_list comma designation? initializer
+    ;
+
+designation
+    = designator+ eq
+    ;
+
+designator
+    = left_square constant_expression right_square
+    | dot ident
+    ;
+
+statement
+    = statement_no_trailing_substatement
+    | selection_statement
+    | labeled_statement_start statement
+    | for_statement_start statement
+    | while_statement_start statement
+    | synchronized_statement_start statement
+    ;
+
+statement_no_short_if
+    = statement_no_trailing_substatement
+    | selection_statement_no_short_if
+    | labeled_statement_start statement_no_short_if
+    | for_statement_start statement_no_short_if
+    | while_statement_start statement_no_short_if
+    | synchronized_statement_start statement_no_short_if
+    ;
+
+statement_no_trailing_substatement
+    = jump_statement
+    | compound_statement
+    | expression_statement
+    | do_keyword statement while_keyword left_paren expression right_paren semicolon
+    | try_block
+    ;
+
+labeled_statement_start
+    = ident colon
+    | case_keyword constant_expression colon
+    | default_keyword colon
+    ;
+
+compound_statement
+    = left_brace block_item* right_brace
+    ;
+
+block_item
+    = declaration
+    | statement
+    ;
+
+expression_statement
+    = expression? semicolon
+    ;
+
+selection_statement
+    = if_keyword left_paren expression right_paren statement
+    | if_keyword left_paren expression right_paren [then]:statement_no_short_if else_keyword [else]:statement
+    | switch_keyword left_paren expression right_paren statement
+    ;
+
+selection_statement_no_short_if
+    = if_keyword left_paren expression right_paren [then]:statement_no_short_if else_keyword [else]:statement_no_short_if
+    | switch_keyword left_paren expression right_paren statement_no_short_if
+    ;
+
+while_statement_start
+    = while_keyword left_paren expression right_paren
+    ;
+
+for_in_iteration_variable
+    = parameter_declaration // I'm not sure if it's correct
+    | ident
+    ;
+
+for_statement_start
+    = for_keyword left_paren [expr1]:expression_statement [expr2]:expression_statement [expr3]:expression? right_paren
+    | for_keyword left_paren declaration [expr1]:expression_statement [expr2]:expression? right_paren
+    | for_keyword left_paren for_in_iteration_variable in_keyword [expr2]:expression right_paren
+    ;
+
+synchronized_statement_start
+    = at_synchronized left_paren expression right_paren
+    ;
+
+jump_statement
+    = goto_keyword ident semicolon
+    | continue_keyword semicolon
+    | break_keyword semicolon
+    | return_keyword expression? semicolon
+    ;
+
+try_block
+        // allows statement, but that causes another dangling else problem
+    = at_try compound_statement catch_clause+ finally_statement?
+    | at_try compound_statement finally_statement
+    ;
+
+catch_clause
+        // allows statement, but that causes another dangling else problem
+    = at_catch left_paren declarator right_paren compound_statement
+    | at_catch left_paren ellipsis right_paren compound_statement
+    ;
+
+finally_statement
+        // allows statement, but try_block needs to be refactored
+    = at_finally compound_statement
+    ;
+
+throw_statement
+    = at_throw left_paren ident right_paren
+    ;
+
+external_declaration
+    = function_definition
+    | declaration
+    | class_interface
+    | class_implementation
+    | category_interface
+    | category_implementation
+    | protocol_declaration
+    | class_declaration_list
+    ;
+
+function_definition
+    = declaration_specifier+ declarator declaration* compound_statement
+    ;
+
+class_interface
+    = at_interface class_name colon_superclass_name? protocol_reference_list? instance_variables? interface_declaration* at_end
+    ;
+
+class_implementation
+    = at_implementation class_name colon_superclass_name? instance_variables? implementation_definition* at_end
+    ;
+
+category_interface
+    = at_interface class_name left_paren category_name? right_paren protocol_reference_list? interface_declaration* at_end
+    ;
+
+category_implementation
+    = at_implementation class_name left_paren category_name right_paren implementation_definition* at_end
+    ;
+
+protocol_declaration
+    = at_protocol protocol_name protocol_reference_list? protocol_interface_declaration at_end
+    ;
+
+class_declaration_list
+    = at_class class_list
+    ;
+
+class_list
+    = class_name
+    | class_list comma class_name
+    ;
+
+protocol_reference_list
+    = lt protocol_list gt
+    ;
+
+protocol_list
+    = protocol_name
+    | protocol_list comma protocol_name
+    ;
+
+class_name
+    = ident
+    ;
+
+superclass_name
+    = ident
+    ;
+
+colon_superclass_name
+    = colon superclass_name
+    ;
+
+category_name
+    = ident
+    ;
+
+protocol_name
+    = ident
+    ;
+
+instance_variables
+    = left_brace instance_variable_declaration right_brace
+    ;
+
+instance_variable_declaration
+    = visibility_specification
+    | struct_declaration+ instance_variables
+    | instance_variable_declaration visibility_specification
+    | instance_variable_declaration struct_declaration+ instance_variables
+    ;
+
+visibility_specification
+    = at_private
+    | at_protected
+    | at_package
+    | at_public
+    ;
+
+protocol_interface_declaration
+    = interface_declaration* qualified_protocol_interface_declaration*
+    ;
+
+qualified_protocol_interface_declaration
+    = at_optional interface_declaration*
+    | at_required interface_declaration*
+    ;
+
+interface_declaration
+    = declaration
+    | property_declaration
+    | method_declaration
+    ;
+
+property_declaration
+    = at_property property_attributes_declaration? struct_declaration
+    ;
+
+property_attributes_declaration
+    = left_paren property_attributes_list right_paren
+    ;
+
+property_attributes_list
+    = property_attribute
+    | property_attributes_list comma property_attribute
+    ;
+
+property_attribute
+    = ident // nonatomic, readwrite, readonly, retain, assign, copy
+    | ident eq [getter_or_ivar]:ident //  getter ivar
+    | ident eq [prop]:ident colon // setter
+    ;
+
+method_declaration
+    = class_method_declaration
+    | instance_method_declaration
+    ;
+
+class_method_declaration
+    = plus method_type? method_selector semicolon
+    ;
+
+instance_method_declaration
+    = minus method_type? method_selector semicolon
+    ;
+
+implementation_definition
+    = function_definition
+    | declaration
+    | property_implementation
+    | method_definition
+    ;
+
+property_implementation
+    = at_synthesize property_synthesize_list semicolon
+    | at_dynamic identifier_list semicolon
+    ;
+
+property_synthesize_list
+    = property_synthesize_list comma property_synthesize_item
+    | property_synthesize_item
+    ;
+
+property_synthesize_item
+    = ident
+    | [prop]:ident eq ident
+    ;
+
+method_definition
+    = class_method_definition
+    | instance_method_definition
+    ;
+
+class_method_definition
+    = plus method_type? method_selector_no_list declaration* semicolon? compound_statement
+    ;
+
+instance_method_definition
+    = minus method_type? method_selector_no_list declaration* semicolon? compound_statement
+    ;
+
+method_selector_no_list
+    = unary_selector
+    | keyword_selector
+    | keyword_selector comma ellipsis
+    ;
+
+method_selector
+    = method_selector_no_list
+    | keyword_selector comma parameter_type_list // this is correct according to objcbook, but causes conflict if followed by declaration*
+    ;
+
+unary_selector
+    = selector
+    ;
+
+keyword_selector
+    = keyword_declarator+
+    ;
+
+keyword_declarator
+    = selector? colon method_type? ident
+    ;
+
+selector
+    = ident
+    ;
+
+method_type
+    = left_paren type_name_with_unknown_type right_paren
+    ;
+
+selector_expression
+    = at_selector left_paren selector_name right_paren
+    ;
+
+selector_name
+    = selector
+    | keyword_name+
+    ;
+
+keyword_name
+    = selector? colon
+    ;
+
+protocol_expression
+    = at_protocol left_paren protocol_name right_paren
+    ;
+
+encode_expression
+    = at_encode left_paren type_name_with_unknown_type right_paren
+    ;
