@@ -1,3 +1,5 @@
+[![No Maintenance Intended](http://unmaintained.tech/badge.svg)](http://unmaintained.tech/ "This project is not actively maintained")
+
 To use this you'll need [SableCC 3](http://sablecc.org/).
 
     java -jar sablecc/lib/sablecc.jar objc2.sablecc3
